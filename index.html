@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Grid Bölücü</title>
+    <title>TikTok Repost Grid Bölücü</title>
     <style>
         :root {
-            --primary: #f1c40f; /* Sarı */
-            --bg-dark: #1a1a1a; /* Siyah/Koyu Gri */
+            --primary: #f1c40f;
+            --bg-dark: #1a1a1a;
             --white: #ffffff;
         }
 
@@ -49,7 +49,6 @@
             box-sizing: border-box;
         }
 
-        /* Mod Seçim Alanı */
         .mode-container {
             display: flex;
             gap: 10px;
@@ -89,34 +88,21 @@
             border-radius: 8px;
             cursor: pointer;
             margin-top: 10px;
-            transition: transform 0.2s;
         }
 
-        .custom-file-upload:active {
-            transform: scale(0.95);
-        }
-
-        /* Grid Yapısı Dinamik Değişecek */
         .grid-container {
             display: grid;
-            gap: 8px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
             width: 100%;
             max-width: 450px;
             margin-top: 20px;
         }
 
-        .grid-3x1 {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        .grid-3x3 {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
         .grid-item {
             background: #222;
             border: 1px solid #333;
-            border-radius: 8px;
+            border-radius: 6px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -128,7 +114,8 @@
         .grid-item canvas {
             width: 100%;
             height: auto;
-            aspect-ratio: 1 / 1;
+            /* TikTok Repost Video Önizleme Oranı (3:4) */
+            aspect-ratio: 3 / 4; 
             display: block;
             border-radius: 4px;
             object-fit: cover;
@@ -156,12 +143,12 @@
 </head>
 <body>
 
-    <h1>TikTok Grid Bölücü</h1>
-    <div class="subtitle">İstediğin modu seç, fotoğrafı at ve parçaları anında indir!</div>
+    <h1>TikTok Repost Bölücü</h1>
+    <div class="subtitle">Gerçek TikTok Repost (3:4) video boyutuna göre kusursuz böler.</div>
 
     <div class="mode-container">
-        <button class="mode-btn active" id="btn3" onclick="setMode(3)">3 Parça (Yatay)</button>
-        <button class="mode-btn" id="btn9" onclick="setMode(9)">9 Parça (Kare)</button>
+        <button class="mode-btn active" id="btn3" onclick="setMode(3)">3 Parça (Yan Yana)</button>
+        <button class="mode-btn" id="btn9" onclick="setMode(9)">9 Parça (Büyük Grid)</button>
     </div>
 
     <div class="upload-container">
@@ -172,10 +159,10 @@
         <input id="file-upload" type="file" accept="image/*">
     </div>
 
-    <div class="grid-container grid-3x1" id="gridContainer"></div>
+    <div class="grid-container" id="gridContainer"></div>
 
     <script>
-        let currentMode = 3; // Varsayılan mod 3'lü bölme
+        let currentMode = 3; 
         let lastLoadedImg = null;
 
         function setMode(mode) {
@@ -183,16 +170,8 @@
             document.getElementById('btn3').classList.toggle('active', mode === 3);
             document.getElementById('btn9').classList.toggle('active', mode === 9);
             
-            const container = document.getElementById('gridContainer');
-            if (mode === 3) {
-                container.className = 'grid-container grid-3x1';
-            } else {
-                container.className = 'grid-container grid-3x3';
-            }
-
-            // Eğer halihazırda bir görsel yüklenmişse modu değiştirince resmi otomatik yeniden işlesin
             if (lastLoadedImg) {
-                processImage(lastLoadedImg);
+                processTikTokImage(lastLoadedImg);
             }
         }
 
@@ -205,50 +184,59 @@
                 const img = new Image();
                 img.onload = function() {
                     lastLoadedImg = img;
-                    processImage(img);
+                    processTikTokImage(img);
                 };
                 img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         });
 
-        function processImage(img) {
+        function processTikTokImage(img) {
             const container = document.getElementById('gridContainer');
             container.innerHTML = ''; 
 
             if (currentMode === 9) {
-                // 9'LU MOD: Merkezden 1:1 kare kesip 3x3 bölme mantığı
-                const size = Math.min(img.width, img.height);
-                const sourceX = (img.width - size) / 2;
-                const sourceY = (img.height - size) / 2;
-                const pieceSize = size / 3;
+                // 9'LU REPOST MODU: Toplam alanın en-boy oranı 3:4 olmalı (Genişlik: W, Yükseklik: W * (4/3))
+                let targetWidth = img.width;
+                let targetHeight = targetWidth * (4 / 3);
 
-                let count = 1;
-                for (let r = 0; r < 3; r++) {
-                    for (let c = 0; c < 3; c++) {
-                        createGridPiece(img, sourceX + (c * pieceSize), sourceY + (r * pieceSize), pieceSize, pieceSize, count);
-                        count++;
-                    }
-                }
-            } else if (currentMode === 3) {
-                // 3'LÜ MOD: Yan yana 3 kare alan kesiyoruz (Genişlik = 3, Yükseklik = 1 oranında bir dikdörtgen)
-                // Fotoğraftan 3:1 oranında maksimum büyüklükte bir alan kırpıyoruz
-                let targetWidth, targetHeight;
-                
-                if (img.width >= img.height * 3) {
+                if (targetHeight > img.height) {
                     targetHeight = img.height;
-                    targetWidth = img.height * 3;
-                } else {
-                    targetWidth = img.width;
-                    targetHeight = img.width / 3;
+                    targetWidth = targetHeight * (3 / 4);
                 }
 
                 const sourceX = (img.width - targetWidth) / 2;
                 const sourceY = (img.height - targetHeight) / 2;
-                const pieceSize = targetHeight; // Her parça tam kare olacağı için genişliği de yüksekliği kadar olacak
+
+                // Her bir parçanın genişlik ve yüksekliği (Kendi içlerinde 3:4 oranında)
+                const pieceWidth = targetWidth / 3;
+                const pieceHeight = targetHeight / 3;
+
+                let count = 1;
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 3; c++) {
+                        createGridPiece(img, sourceX + (c * pieceWidth), sourceY + (r * pieceHeight), pieceWidth, pieceHeight, count);
+                        count++;
+                    }
+                }
+            } else if (currentMode === 3) {
+                // 3'LÜ REPOST MODU: Yan yana 3 tane 3:4 parça birleşince toplam oran 9:4 olur.
+                let targetWidth = img.width;
+                let targetHeight = targetWidth * (4 / 9);
+
+                if (targetHeight > img.height) {
+                    targetHeight = img.height;
+                    targetWidth = targetHeight * (9 / 4);
+                }
+
+                const sourceX = (img.width - targetWidth) / 2;
+                const sourceY = (img.height - targetHeight) / 2;
+
+                const pieceWidth = targetWidth / 3;
+                const pieceHeight = targetHeight; // Tek satır olduğu için yükseklik değişmez
 
                 for (let c = 0; c < 3; c++) {
-                    createGridPiece(img, sourceX + (c * pieceSize), sourceY, pieceSize, pieceSize, c + 1);
+                    createGridPiece(img, sourceX + (c * pieceWidth), sourceY, pieceWidth, pieceHeight, c + 1);
                 }
             }
         }
@@ -269,7 +257,7 @@
             downloadBtn.className = 'download-btn';
             downloadBtn.innerText = `Parça ${index}`;
             downloadBtn.href = canvas.toDataURL('image/jpeg', 0.95);
-            downloadBtn.download = `tiktok_grid_mod${currentMode}_${index}.jpg`;
+            downloadBtn.download = `tiktok_repost_${index}.jpg`;
 
             gridItem.appendChild(canvas);
             gridItem.appendChild(downloadBtn);
