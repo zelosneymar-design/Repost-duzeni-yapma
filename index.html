@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Grid Bölücü (Kare Sabitli)</title>
+    <title>TikTok Grid Bölücü</title>
     <style>
         :root {
-            --primary: #f1c40f;
-            --bg-dark: #1a1a1a;
+            --primary: #f1c40f; /* Sarı */
+            --bg-dark: #1a1a1a; /* Siyah/Koyu Gri */
             --white: #ffffff;
         }
 
@@ -49,6 +49,33 @@
             box-sizing: border-box;
         }
 
+        /* Mod Seçim Alanı */
+        .mode-container {
+            display: flex;
+            gap: 10px;
+            width: 90%;
+            max-width: 400px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            background: #333;
+            color: var(--white);
+            border: 2px solid #444;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: var(--primary);
+            color: var(--bg-dark);
+            border-color: var(--primary);
+        }
+
         input[type="file"] {
             display: none;
         }
@@ -69,13 +96,21 @@
             transform: scale(0.95);
         }
 
+        /* Grid Yapısı Dinamik Değişecek */
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
             gap: 8px;
             width: 100%;
             max-width: 450px;
             margin-top: 20px;
+        }
+
+        .grid-3x1 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .grid-3x3 {
+            grid-template-columns: repeat(3, 1fr);
         }
 
         .grid-item {
@@ -93,7 +128,7 @@
         .grid-item canvas {
             width: 100%;
             height: auto;
-            aspect-ratio: 1 / 1; /* Ekrandaki önizlemeyi de tam kare yapar */
+            aspect-ratio: 1 / 1;
             display: block;
             border-radius: 4px;
             object-fit: cover;
@@ -122,7 +157,12 @@
 <body>
 
     <h1>TikTok Grid Bölücü</h1>
-    <div class="subtitle">Fotoğrafın ortasından kusursuz 1:1 kare keser ve eşit böler.</div>
+    <div class="subtitle">İstediğin modu seç, fotoğrafı at ve parçaları anında indir!</div>
+
+    <div class="mode-container">
+        <button class="mode-btn active" id="btn3" onclick="setMode(3)">3 Parça (Yatay)</button>
+        <button class="mode-btn" id="btn9" onclick="setMode(9)">9 Parça (Kare)</button>
+    </div>
 
     <div class="upload-container">
         <p>Bölmek istediğin fotoğrafı seç:</p>
@@ -132,9 +172,30 @@
         <input id="file-upload" type="file" accept="image/*">
     </div>
 
-    <div class="grid-container" id="gridContainer"></div>
+    <div class="grid-container grid-3x1" id="gridContainer"></div>
 
     <script>
+        let currentMode = 3; // Varsayılan mod 3'lü bölme
+        let lastLoadedImg = null;
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn3').classList.toggle('active', mode === 3);
+            document.getElementById('btn9').classList.toggle('active', mode === 9);
+            
+            const container = document.getElementById('gridContainer');
+            if (mode === 3) {
+                container.className = 'grid-container grid-3x1';
+            } else {
+                container.className = 'grid-container grid-3x3';
+            }
+
+            // Eğer halihazırda bir görsel yüklenmişse modu değiştirince resmi otomatik yeniden işlesin
+            if (lastLoadedImg) {
+                processImage(lastLoadedImg);
+            }
+        }
+
         document.getElementById('file-upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -143,62 +204,76 @@
             reader.onload = function(event) {
                 const img = new Image();
                 img.onload = function() {
-                    processSquareImage(img);
+                    lastLoadedImg = img;
+                    processImage(img);
                 };
                 img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         });
 
-        function processSquareImage(img) {
+        function processImage(img) {
             const container = document.getElementById('gridContainer');
             container.innerHTML = ''; 
 
-            // 1. ADIM: Fotoğrafın kısa kenarını bulup merkezden bir kare (1:1) alan belirliyoruz
-            const size = Math.min(img.width, img.height);
-            
-            // Fotoğraf yatay mı dikey mi? Merkezlemek için başlangıç noktalarını (X ve Y) hesapla
-            const sourceX = (img.width - size) / 2;
-            const sourceY = (img.height - size) / 2;
+            if (currentMode === 9) {
+                // 9'LU MOD: Merkezden 1:1 kare kesip 3x3 bölme mantığı
+                const size = Math.min(img.width, img.height);
+                const sourceX = (img.width - size) / 2;
+                const sourceY = (img.height - size) / 2;
+                const pieceSize = size / 3;
 
-            // 2. ADIM: Bu kare alanı 3 eşit parçaya bölüyoruz
-            const pieceSize = size / 3;
+                let count = 1;
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 3; c++) {
+                        createGridPiece(img, sourceX + (c * pieceSize), sourceY + (r * pieceSize), pieceSize, pieceSize, count);
+                        count++;
+                    }
+                }
+            } else if (currentMode === 3) {
+                // 3'LÜ MOD: Yan yana 3 kare alan kesiyoruz (Genişlik = 3, Yükseklik = 1 oranında bir dikdörtgen)
+                // Fotoğraftan 3:1 oranında maksimum büyüklükte bir alan kırpıyoruz
+                let targetWidth, targetHeight;
+                
+                if (img.width >= img.height * 3) {
+                    targetHeight = img.height;
+                    targetWidth = img.height * 3;
+                } else {
+                    targetWidth = img.width;
+                    targetHeight = img.width / 3;
+                }
 
-            let count = 1;
-            for (let r = 0; r < 3; r++) {
+                const sourceX = (img.width - targetWidth) / 2;
+                const sourceY = (img.height - targetHeight) / 2;
+                const pieceSize = targetHeight; // Her parça tam kare olacağı için genişliği de yüksekliği kadar olacak
+
                 for (let c = 0; c < 3; c++) {
-                    
-                    const gridItem = document.createElement('div');
-                    gridItem.className = 'grid-item';
-
-                    // Çıkan parçanın tam kare (1:1) olmasını garanti ediyoruz
-                    const canvas = document.createElement('canvas');
-                    canvas.width = pieceSize;
-                    canvas.height = pieceSize;
-                    const ctx = canvas.getContext('2d');
-
-                    // Resmi tam merkezden kırparak canvas'a çiz
-                    ctx.drawImage(
-                        img, 
-                        sourceX + (c * pieceSize), sourceY + (r * pieceSize), pieceSize, pieceSize, // Kaynaktan kırpılan alan
-                        0, 0, pieceSize, pieceSize // Canvas'a oturtulan alan
-                    );
-
-                    const downloadBtn = document.createElement('a');
-                    downloadBtn.className = 'download-btn';
-                    downloadBtn.innerText = `Parça ${count}`;
-                    
-                    // Netlik bozulmasın diye yüksek kalitede çıktı alıyoruz
-                    downloadBtn.href = canvas.toDataURL('image/jpeg', 0.95);
-                    downloadBtn.download = `tiktok_grid_${count}.jpg`;
-
-                    gridItem.appendChild(canvas);
-                    gridItem.appendChild(downloadBtn);
-                    container.appendChild(gridItem);
-
-                    count++;
+                    createGridPiece(img, sourceX + (c * pieceSize), sourceY, pieceSize, pieceSize, c + 1);
                 }
             }
+        }
+
+        function createGridPiece(img, sx, sy, sw, sh, index) {
+            const container = document.getElementById('gridContainer');
+            const gridItem = document.createElement('div');
+            gridItem.className = 'grid-item';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = sw;
+            canvas.height = sh;
+            const ctx = canvas.getContext('2d');
+
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+            const downloadBtn = document.createElement('a');
+            downloadBtn.className = 'download-btn';
+            downloadBtn.innerText = `Parça ${index}`;
+            downloadBtn.href = canvas.toDataURL('image/jpeg', 0.95);
+            downloadBtn.download = `tiktok_grid_mod${currentMode}_${index}.jpg`;
+
+            gridItem.appendChild(canvas);
+            gridItem.appendChild(downloadBtn);
+            container.appendChild(gridItem);
         }
     </script>
 </body>
