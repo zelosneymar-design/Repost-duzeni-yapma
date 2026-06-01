@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Grid Bölücü</title>
+    <style>
+        :root {
+            --primary: #f1c40f; /* Sarı */
+            --bg-dark: #1a1a1a; /* Siyah/Koyu Gri */
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--white);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .upload-container {
+            background: #2c2c2c;
+            border: 2px dashed var(--primary);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: var(--bg-dark);
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        .custom-file-upload:active {
+            transform: scale(0.95);
+        }
+
+        /* 3x3 Grid Yapısı */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 450px;
+            margin-top: 20px;
+        }
+
+        .grid-item {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .grid-item canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .download-btn {
+            width: 100%;
+            background: var(--white);
+            color: var(--bg-dark);
+            border: none;
+            padding: 6px 0;
+            margin-top: 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .download-btn:active {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>TikTok Grid Bölücü</h1>
+
+    <div class="upload-container">
+        <p>Bölmek istediğin fotoğrafı seç:</p>
+        <label for="file-upload" class="custom-file-upload">
+            Fotoğraf Seç
+        </label>
+        <input id="file-upload" type="file" accept="image/*">
+    </div>
+
+    <div class="grid-container" id="gridContainer"></div>
+
+    <script>
+        document.getElementById('file-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    processImage(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function processImage(img) {
+            const container = document.getElementById('gridContainer');
+            container.innerHTML = ''; // Eski resimleri temizle
+
+            // TikTok grid mantığı için kare (1:1) oranında bölme yapıyoruz
+            // Fotoğrafın en küçük kenarını baz alarak kare bir alan kesebiliriz 
+            // ya da direkt genişlik/yükseklik üzerinden 3'e bölebiliriz.
+            // En temiz sonuç için direkt resmi 3x3 eşit parçaya bölüyoruz:
+            const pieceWidth = img.width / 3;
+            const pieceHeight = img.height / 3;
+
+            // TikTok ızgarası sağdan sola, yukarıdan aşağıya doğru sıralanır.
+            // Ancak TikTok'a yüklerken profilinde düzgün durması için 
+            // EN SON PARÇAYI (Sağ alt) İLK ÖNCE yüklemen gerekir.
+            // Burada kafan karışmasın diye biz normal görsel sırasıyla (sol üstten sağ alta) basıyoruz, 
+            // altına da numaralarını yazıyoruz ki yüklerken sırayı şaşırma.
+            
+            let count = 1;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    
+                    // Her parça için bir taşıyıcı div oluştur
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'grid-item';
+
+                    // Gizli render ve kırpma için Canvas kullanıyoruz
+                    const canvas = document.createElement('canvas');
+                    canvas.width = pieceWidth;
+                    canvas.height = pieceHeight;
+                    const ctx = canvas.getContext('2d');
+
+                    // Resmi kırp ve canvas'a çiz
+                    ctx.drawImage(
+                        img, 
+                        c * pieceWidth, r * pieceHeight, pieceWidth, pieceHeight, // Kaynak koordinatları
+                        0, 0, pieceWidth, pieceHeight // Hedef koordinatları
+                    );
+
+                    // İndirme butonu (Link şeklinde)
+                    const downloadBtn = document.createElement('a');
+                    downloadBtn.className = 'download-btn';
+                    downloadBtn.innerText = `Parça ${count} - İndir`;
+                    
+                    // Canvas'ı indirilebilir bir resim linkine çevir
+                    downloadBtn.href = canvas.toDataURL('image/jpeg', 0.9);
+                    downloadBtn.download = `tiktok_grid_parca_${count}.jpg`;
+
+                    // Elementleri ekrana bas
+                    gridItem.appendChild(canvas);
+                    gridItem.appendChild(downloadBtn);
+                    container.appendChild(gridItem);
+
+                    count++;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
